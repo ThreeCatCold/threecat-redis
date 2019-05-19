@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 
 import java.util.Collections;
+import java.util.List;
 
 /**
  * redis分布式锁实现
@@ -56,22 +57,22 @@ public class RedisDistLock implements DistributedLock
 	 */
 	private int expireTime;
 
-	private Jedis jedis;
+	private RedisClient redisClient;
 
-	public RedisDistLock(String lockKey, int expireTime, Jedis jedis)
+	public RedisDistLock(String lockKey, int expireTime, RedisClient redisClient)
 	{
 		this.lockKey = lockKey;
 		this.requestId = lockKey;
 		this.expireTime = expireTime;
-		this.jedis = jedis;
+		this.redisClient = redisClient;
 	}
 
-	public RedisDistLock(String lockKey, String requestId, int expireTime, Jedis jedis)
+	public RedisDistLock(String lockKey, String requestId, int expireTime, RedisClient redisClient)
 	{
 		this.lockKey = lockKey;
 		this.requestId = requestId;
 		this.expireTime = expireTime;
-		this.jedis = jedis;
+		this.redisClient = redisClient;
 	}
 
 	/**
@@ -84,10 +85,12 @@ public class RedisDistLock implements DistributedLock
 	{
 		try
 		{
-			String result = jedis.set(lockKey, requestId, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, expireTime);
+			Class[] paramTypes = {String.class, String.class, String.class, String.class, int.class};
+			Object[] params = {lockKey, requestId, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, expireTime};
+			String result = redisClient.executeCommand("set", paramTypes, params);
 			if (LOCK_SUCCESS.equals(result))
 			{
-				logger.info("RedisDistLock lock \"{}\" success.", lockKey);
+				logger.debug("RedisDistLock lock \"{}\" success. requestId: {}", lockKey, requestId);
 				return true;
 			}
 		}
@@ -113,11 +116,12 @@ public class RedisDistLock implements DistributedLock
 	{
 		try
 		{
-			Object result = jedis
-					.eval(LUA_UNLOCK_SCRIPT, Collections.singletonList(lockKey), Collections.singletonList(requestId));
+			Class[] paramTypes = {String.class, List.class, List.class};
+			Object[] params = {LUA_UNLOCK_SCRIPT, Collections.singletonList(lockKey), Collections.singletonList(requestId)};
+			Long result = redisClient.executeCommand("eval", paramTypes, params);
 			if (UNLOCK_SUCCESS.equals(result))
 			{
-				logger.info("RedisDistLock unlock \"{}\" success.", lockKey);
+				logger.debug("RedisDistLock unlock \"{}\" success. requestId: {}", lockKey, requestId);
 			}
 		}
 		catch (Exception e)

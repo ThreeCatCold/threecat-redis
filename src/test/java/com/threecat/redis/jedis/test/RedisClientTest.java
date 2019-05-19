@@ -4,6 +4,8 @@ import com.threecat.redis.jedis.clients.RedisClient;
 import com.threecat.redis.jedis.clients.RedisConfig;
 import com.threecat.redis.lock.DistributedLock;
 import com.threecat.redis.lock.impl.RedisDistLock;
+import com.threecat.redis.util.ThreadUtils;
+import org.junit.Test;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
@@ -14,20 +16,31 @@ import java.util.concurrent.TimeUnit;
 
 public class RedisClientTest
 {
-	public static void main(String[] args)
+	@Test
+	public void testRedisClient()
+	{
+		RedisClient redisClient = RedisClient.getInstance();
+		Class[] paramTypes = {String.class, String.class, String.class, String.class, int.class};
+		Object[] params = {"LOCK_KEY", "REQUEST_ID", "NX", "PX", 60000};
+		redisClient.executeCommand("set", paramTypes, params);
+		System.out.println("execute redis command success.");
+	}
+
+	@Test
+	public void testDistLock()
 	{
 		String lockKey = "DIST_LOCK";
 		String requestId = lockKey + System.currentTimeMillis();
 		int expireTime = 1000;
 
-		ExecutorService threadPool = Executors.newFixedThreadPool(3);
+		ExecutorService threadPool = Executors.newFixedThreadPool(5);
 
 		for (int i = 0; i < 5; i++)
 		{
 			threadPool.submit(() -> {
-				Jedis jedis = RedisClient.getInstance().getJedis();
+				RedisClient redisClient = RedisClient.getInstance();
 				DistributedLock lock = new RedisDistLock(lockKey, lockKey + ":" + System.currentTimeMillis(),
-						expireTime, jedis);
+						expireTime, redisClient);
 				try
 				{
 					while (true)
@@ -50,6 +63,9 @@ public class RedisClientTest
 					e.printStackTrace();
 				}
 			});
+			ThreadUtils.sleep(300);
 		}
+		ThreadUtils.sleep(Integer.MAX_VALUE);
 	}
+
 }

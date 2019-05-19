@@ -6,6 +6,8 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 /**
  * 基于jedis的redis客户端
@@ -62,7 +64,7 @@ public class RedisClient
 		}
 		catch (Exception e)
 		{
-			logger.error("Get jedis from jedisPool error: " + e.getMessage());
+			logger.error("[RedisClient]:Get jedis from jedisPool error: " + e.getMessage());
 		}
 		return jedis;
 	}
@@ -74,4 +76,32 @@ public class RedisClient
 			jedis.close();
 		}
 	}
+
+	public <T> T executeCommand(String command, Class[] paramTypes, Object[] params)
+	{
+		Object result = null;
+		Jedis jedis = getJedis();
+		Method redisMethod = null;
+		try
+		{
+			redisMethod = Jedis.class.getMethod(command, paramTypes);
+			result = redisMethod.invoke(jedis, params);
+		}
+		catch (NoSuchMethodException e)
+		{
+			logger.error("[RedisClient]: No such redis command:" +
+					e);
+		}
+		catch (IllegalAccessException | InvocationTargetException e)
+		{
+			logger.error("[RedisClient]: Execute redis command failed:" + e);
+		}
+		finally
+		{
+			closeJedis(jedis);
+		}
+
+		return (T)result;
+	}
+
 }
