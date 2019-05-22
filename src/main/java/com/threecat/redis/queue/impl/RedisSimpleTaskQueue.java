@@ -6,7 +6,7 @@ import redis.clients.jedis.Jedis;
 /**
  * 主要使用lpush和brpop这种一进一出组合实现，具体怎么实现待定
  */
-public class RedisTaskQueue implements TaskQueue
+public class RedisSimpleTaskQueue implements TaskQueue
 {
 	private Jedis jedis;
 

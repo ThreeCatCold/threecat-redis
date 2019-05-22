@@ -64,7 +64,7 @@ public class RedisClient
 		}
 		catch (Exception e)
 		{
-			logger.error("[RedisClient]:Get jedis from jedisPool error: " + e.getMessage());
+			logger.error("[RedisClient]:Get jedis from jedisPool error: " + e);
 		}
 		return jedis;
 	}

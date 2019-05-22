@@ -58,7 +58,7 @@ public class SentinelConfig
 
 	private Set<String> parseClusterConfig(String clusterConfigStr)
 	{
-		if (CommonUtils.isStrEmpty(clusterConfigStr))
+		if (CommonUtils.isEmptyString(clusterConfigStr))
 		{
 			return new HashSet<>(Arrays.asList("127.0.0.1:26379"));
 		}

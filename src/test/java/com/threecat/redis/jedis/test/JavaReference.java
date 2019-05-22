@@ -7,6 +7,9 @@ import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 
+/**
+ * Java 强、软、弱、虚4个引用的学习范例
+ */
 public class JavaReference
 {
 	public void testSoftReference()
