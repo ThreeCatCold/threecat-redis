@@ -1,6 +1,6 @@
 package com.threecat.redis.jedis.test;
 
-import com.threecat.redis.task.pool.RedisTaskQueueUtil;
+import com.threecat.redis.task.pool.RedisTaskQueue;
 import com.threecat.redis.util.ThreadUtils;
 import org.junit.Test;
 
@@ -16,7 +16,7 @@ public class RedisTaskQueueTest
 		for (int i = 0; i < taskNum; i++)
 		{
 			String task = "task-msg:" + (i + 1);
-			RedisTaskQueueUtil.submitTask(task);
+//			RedisTaskQueue.submitTask(task);
 			ThreadUtils.sleep(1000);
 		}
 

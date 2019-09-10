@@ -8,20 +8,26 @@ import com.threecat.redis.util.ThreadUtils;
 import com.threecat.redis.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class RedisTaskQueueUtil
+@Component
+public class RedisTaskQueue
 {
-	private static Logger logger = LoggerFactory.getLogger(RedisTaskQueueUtil.class);
+	private Logger logger = LoggerFactory.getLogger(RedisTaskQueue.class);
 
 	/**
 	 * 定时任务线程池
 	 */
-	private static ScheduledExecutorService timerTaskPool;
+	private ScheduledExecutorService timerTaskPool;
+
+	@Autowired
+	private TaskThreadPool taskThreadPool;
 
 	/**
 	 * 抓取任务的锁名
@@ -63,10 +69,16 @@ public class RedisTaskQueueUtil
 	 */
 	private static RedisClient redisClient = RedisClient.getInstance();
 
+	public RedisTaskQueue()
+	{
+		super();
+		triggerTask();
+	}
+
 	/**
 	 * 触发任务
 	 */
-	public static void triggerTask()
+	public void triggerTask()
 	{
 		logger.info("Prepare fetch service task.");
 		timerTaskPool = Executors.newSingleThreadScheduledExecutor();
@@ -84,7 +96,7 @@ public class RedisTaskQueueUtil
 	/**
 	 * 获取任务
 	 */
-	private static void fetchTask()
+	private void fetchTask()
 	{
 		// 请求ID使用uuid保持唯一性
 		String requestId = UUIDUtil.uuid();
@@ -96,7 +108,7 @@ public class RedisTaskQueueUtil
 			try
 			{
 				// 如果任务线程池尚有空余，则抓取任务
-				if (TaskUtil.checkTaskPoolIsFree())
+				if (taskThreadPool.checkTaskPoolIsFree())
 				{
 					Class[] paramTypes = { int.class, String.class };
 					Object[] params = { POP_TASK_TIMEOUT, TASK_QUEUE_NAME };
@@ -104,14 +116,14 @@ public class RedisTaskQueueUtil
 					List<String> taskList = redisClient.executeCommand("brpop", paramTypes, params);
 					// 已经取出任务就可以释放锁了
 					taskLock.unlock();
-					String task = parseSimpleTask(taskList);
+					String taskMessage = parseSimpleTask(taskList);
 
 					// TODO 将任务提交到任务队列线程池，或者队列
-					if (!CommonUtils.isEmptyObject(task))
+					if (!CommonUtils.isEmptyObject(taskMessage))
 					{
 						// 休息0.5s，假装提交任务至任务线程池
 						ThreadUtils.sleep(500);
-						logger.info("Pop and execute task {} success.", task);
+						logger.info("Pop and execute task {} success.", taskMessage);
 					}
 
 					// 休息500ms
@@ -130,7 +142,7 @@ public class RedisTaskQueueUtil
 	 * @param taskList
 	 * @return
 	 */
-	private static String parseSimpleTask(List<String> taskList)
+	private String parseSimpleTask(List<String> taskList)
 	{
 		if (!CommonUtils.isEmptyObject(taskList))
 		{
@@ -144,7 +156,7 @@ public class RedisTaskQueueUtil
 		return null;
 	}
 
-	public static boolean submitTask(String taskJsonStr)
+	public boolean submitTask(String taskMessage)
 	{
 		logger.debug("start submit task");
 		boolean success = false;
@@ -163,13 +175,13 @@ public class RedisTaskQueueUtil
 				if (isTaskQueueFree(redisClient.executeCommand("llen", paramTypes, params)))
 				{
 					paramTypes = new Class[]{String.class, String[].class};
-					params = new Object[]{TASK_QUEUE_NAME, new String[]{taskJsonStr}};
+					params = new Object[]{TASK_QUEUE_NAME, new String[]{taskMessage}};
 
 					long result = redisClient.executeCommand("lpush", paramTypes, params);
 					// 提交成功
 					if (result >= 1l)
 					{
-						logger.info("submit task success: " + taskJsonStr);
+						logger.info("submit task success: " + taskMessage);
 						success = true;
 					}
 					else
@@ -198,7 +210,7 @@ public class RedisTaskQueueUtil
 	 * @param queueSize
 	 * @return
 	 */
-	public static boolean isTaskQueueFree(long queueSize)
+	public boolean isTaskQueueFree(long queueSize)
 	{
 		return queueSize < TASK_QUEUE_MAX_SIZE;
 	}
